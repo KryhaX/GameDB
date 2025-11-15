@@ -1,0 +1,16 @@
+{% extends "games/base.html" %}
+{% block content %}
+<h1>{{ game.title }}</h1>
+
+{% if game.cover %}
+  <img src="{{ game.cover.url }}" alt="{{ game.title }} cover" class="img-fluid mb-3" style="max-width:300px;">
+{% else %}
+  <p class="text-muted">Brak okładki</p>
+{% endif %}
+
+<p><strong>Year:</strong> {{ game.release_year }}</p>
+<p><strong>Genre:</strong> {{ game.genre }}</p>
+<p><strong>Rating:</strong> {{ game.user_rating }}/10</p>
+<a class="btn btn-secondary" href="{% url 'games:list' %}">Back</a>
+<a class="btn btn-primary" href="{% url 'games:edit' game.pk %}">Edit</a>
+{% endblock %}

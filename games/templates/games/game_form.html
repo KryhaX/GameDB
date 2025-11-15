@@ -1,0 +1,36 @@
+{% extends "games/base.html" %}
+{% block content %}
+<h1>{% if object %}Edit{% else %}Add{% endif %} Game</h1>
+<form method="post" enctype="multipart/form-data">
+  {% csrf_token %}
+  {{ form.non_field_errors }}
+  <div class="mb-3">
+    {{ form.title.label_tag }} {{ form.title }}
+    {{ form.title.errors }}
+  </div>
+  <div class="mb-3">
+    {{ form.release_year.label_tag }} {{ form.release_year }}
+    {{ form.release_year.errors }}
+  </div>
+  <div class="mb-3">
+    {{ form.genre.label_tag }} {{ form.genre }}
+    {{ form.genre.errors }}
+  </div>
+  <div class="mb-3">
+    {{ form.user_rating.label_tag }} {{ form.user_rating }}
+    {{ form.user_rating.errors }}
+  </div>
+  <div class="mb-3">
+    {{ form.cover.label_tag }} {{ form.cover }}
+    {{ form.cover.errors }}
+    {% if object and object.cover %}
+      <div class="mt-2">
+        <img src="{{ object.cover.url }}" alt="Cover" style="max-width: 200px; height: auto;">
+        <p class="small text-muted">Obecna okładka</p>
+      </div>
+    {% endif %}
+  </div>
+  <button class="btn btn-success" type="submit">Save</button>
+  <a class="btn btn-secondary" href="{% url 'games:list' %}">Cancel</a>
+</form>
+{% endblock %}

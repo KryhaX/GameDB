@@ -1,0 +1,10 @@
+{% extends "games/base.html" %}
+{% block content %}
+<h1>Confirm delete</h1>
+<p>Are you sure you want to delete "{{ object }}"?</p>
+<form method="post">
+  {% csrf_token %}
+  <button class="btn btn-danger" type="submit">Yes, delete</button>
+  <a class="btn btn-secondary" href="{% url 'games:list' %}">Cancel</a>
+</form>
+{% endblock %}

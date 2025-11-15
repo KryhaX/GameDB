@@ -1,0 +1,17 @@
+{% extends "games/base.html" %}
+{% block content %}
+<h1>Top {{ n }} Games</h1>
+<ul class="list-group">
+  {% for game in games %}
+    <li class="list-group-item d-flex justify-content-between">
+      <div>
+        <a href="{% url 'games:detail' game.pk %}">{{ game.title }}</a><br>
+        <small>{{ game.genre }} — {{ game.release_year }}</small>
+      </div>
+      <span class="badge bg-primary">{{ game.user_rating }}</span>
+    </li>
+  {% empty %}
+    <li class="list-group-item">No games.</li>
+  {% endfor %}
+</ul>
+{% endblock %}
