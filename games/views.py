@@ -1,26 +1,23 @@
-from django.shortcuts import render, get_object_or_404
-from .models import Game
+from django.contrib import messages
 from django.shortcuts import render, get_object_or_404, redirect
-from django.urls import reverse_lazy, reverse
-from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView, FormView
-from django.http import JsonResponse, HttpResponse
+from django.urls import reverse_lazy
+from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth import login
+from django.http import HttpResponse, HttpResponseForbidden
+from django.core.exceptions import PermissionDenied
 from django.views.decorators.http import require_http_methods
-from django.utils.decorators import method_decorator
-from django.views.decorators.csrf import csrf_exempt
+
 import json
 
 from .models import Game
 from .forms import GameForm
 
-def game_list(request):
-    games = Game.objects.all()
-    return render(request, 'games/game_list.html', {'games': games})
 
-def game_detail(request, game_id):
-    game = get_object_or_404(Game, id=game_id)
-    return render(request, 'games/game_detail.html', {'game': game})
-
-# List + optional genre filter
+# -----------------------
+# List / Detail Views
+# -----------------------
 class GameListView(ListView):
     model = Game
     template_name = 'games/game_list.html'
@@ -40,48 +37,111 @@ class GameListView(ListView):
         ctx['selected_genre'] = self.request.GET.get('genre', '')
         return ctx
 
+
 class GameDetailView(DetailView):
     model = Game
     template_name = 'games/game_detail.html'
     context_object_name = 'game'
 
-class GameCreateView(CreateView):
+
+# -----------------------
+# Permissions mixin
+# -----------------------
+class OwnerOrStaffRequiredMixin(UserPassesTestMixin):
+    """
+    Allow access only if the request.user is the owner of the object or is staff/superuser.
+    Used for UpdateView and DeleteView.
+    """
+    def test_func(self):
+        obj = self.get_object()
+        if obj is None:
+            return False
+        user = getattr(self.request, "user", None)
+        if user is None or not user.is_authenticated:
+            return False
+        return (obj.owner == user) or user.is_staff or user.is_superuser
+
+    def handle_no_permission(self):
+        # raise 403 (can be customized to redirect or show message)
+        raise PermissionDenied
+
+
+# -----------------------
+# Create / Update / Delete
+# -----------------------
+class GameCreateView(LoginRequiredMixin, CreateView):
     model = Game
     form_class = GameForm
     template_name = 'games/game_form.html'
     success_url = reverse_lazy('games:list')
+    login_url = reverse_lazy('login')
 
-class GameUpdateView(UpdateView):
+    def form_valid(self, form):
+        # set owner to currently logged in user
+        form.instance.owner = self.request.user
+        return super().form_valid(form)
+
+
+class GameUpdateView(LoginRequiredMixin, OwnerOrStaffRequiredMixin, UpdateView):
     model = Game
     form_class = GameForm
     template_name = 'games/game_form.html'
     success_url = reverse_lazy('games:list')
+    login_url = reverse_lazy('login')
 
-class GameDeleteView(DeleteView):
+
+class GameDeleteView(LoginRequiredMixin, OwnerOrStaffRequiredMixin, DeleteView):
     model = Game
     template_name = 'games/confirm_delete.html'
     success_url = reverse_lazy('games:list')
+    login_url = reverse_lazy('login')
 
-# Top N view (GET param n, default 10)
+
+# -----------------------
+# Registration (signup)
+# -----------------------
+class SignUpView(CreateView):
+    form_class = UserCreationForm
+    template_name = 'registration/signup.html'
+    success_url = reverse_lazy('games:list')  # strona główna gier
+
+    def form_valid(self, form):
+        # zapisuje zwykłego użytkownika
+        user = form.save()  # is_staff=False, is_superuser=False
+        # loguje go automatycznie
+        login(self.request, user)
+        messages.success(self.request, f"Welcome, {user.username}! You are now logged in.")
+        return redirect(self.success_url)
+
+
+# -----------------------
+# Top N view
+# -----------------------
 def top_games(request):
     try:
         n = int(request.GET.get('n', 10))
-    except ValueError:
+    except (ValueError, TypeError):
         n = 10
-    n = max(1, min(n, 100))  # sanity check
+    n = max(1, min(n, 100))
     games = Game.objects.order_by('-user_rating', '-release_year')[:n]
     return render(request, 'games/top_games.html', {'games': games, 'n': n})
 
+
+# -----------------------
 # Export JSON (download)
+# -----------------------
 def export_games_json(request):
-    qs = list(Game.objects.values('title', 'release_year', 'genre', 'user_rating'))
+    qs = list(Game.objects.values('title', 'release_year', 'genre', 'user_rating', 'owner_id'))
     data = json.dumps(qs, indent=2, ensure_ascii=False)
     filename = "games_export.json"
     response = HttpResponse(data, content_type='application/json; charset=utf-8')
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     return response
 
-# Import JSON (simple upload form + processing)
+
+# -----------------------
+# Import JSON (simple upload)
+# -----------------------
 @require_http_methods(["GET", "POST"])
 def import_games_json(request):
     message = None
@@ -97,7 +157,7 @@ def import_games_json(request):
             for idx, item in enumerate(data):
                 title = item.get('title')
                 if not title:
-                    errors.append(f'Entry {idx}: brak tytułu')
+                    errors.append(f'Entry {idx}: missing title')
                     continue
                 # fallback/defaults and types
                 try:
@@ -110,6 +170,7 @@ def import_games_json(request):
                 except (TypeError, ValueError):
                     rating = 0
                 rating = max(0, min(rating, 10))
+
                 obj, created_flag = Game.objects.update_or_create(
                     title=title,
                     defaults={'release_year': year, 'genre': genre, 'user_rating': rating}
@@ -118,7 +179,7 @@ def import_games_json(request):
                     created += 1
                 else:
                     updated += 1
-            message = f"Zaimportowano: {created} nowych, zaktualizowano: {updated}. Błędy: {len(errors)}"
+            message = f"Imported: {created} new, updated: {updated}. Errors: {len(errors)}"
         except Exception as e:
-            message = f"Błąd podczas importu: {e}"
+            message = f"Error during import: {e}"
     return render(request, 'games/import_json.html', {'message': message})

@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 
@@ -15,5 +16,15 @@ class Game(models.Model):
     genre = models.CharField(max_length=100)
     user_rating = models.PositiveSmallIntegerField(default=0)  # 0–10
     cover = models.ImageField(upload_to='covers/', null=True, blank=True, validators=[validate_image_size])
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='games'
+    )
+
+
     def __str__(self):
         return self.title
+
