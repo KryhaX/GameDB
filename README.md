@@ -13,6 +13,7 @@ It features a dark theme, cover images for games, and a responsive grid layout u
 - Dark mode theme
 - Filter by genre (optional)
 - Export / import games to JSON (optional)
+- User registration, login, and authentication
 
 ---
 
@@ -22,6 +23,7 @@ It features a dark theme, cover images for games, and a responsive grid layout u
 ![Game list](docs/gamelist.png)
 ![Game detail](docs/game-details.png)
 ![Add/Edit Game](docs/game-edit.png)
+![Signup / Login](docs/signup-login.png)
 
 ---
 
