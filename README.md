@@ -23,7 +23,8 @@ It features a dark theme, cover images for games, and a responsive grid layout u
 ![Game list](docs/gamelist.png)
 ![Game detail](docs/game-details.png)
 ![Add/Edit Game](docs/game-edit.png)
-![Signup / Login](docs/signup-login.png)
+![Signup / Login](docs/signup.png)
+![Login](docs/login.png)
 
 ---
 
@@ -43,3 +44,9 @@ It features a dark theme, cover images for games, and a responsive grid layout u
 ```bash
 git clone https://github.com/YOUR_USERNAME/GameDB.git
 cd GameDB
+```
+
+2. Launch server:
+```bash
+python manage.py runserver
+```
