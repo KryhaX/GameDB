@@ -97,21 +97,31 @@ class GameDeleteView(LoginRequiredMixin, OwnerOrStaffRequiredMixin, DeleteView):
     login_url = reverse_lazy('login')
 
 
-# -----------------------
-# Registration (signup)
-# -----------------------
 class SignUpView(CreateView):
     form_class = UserCreationForm
     template_name = 'registration/signup.html'
-    success_url = reverse_lazy('games:list')  # strona główna gier
+    success_url = reverse_lazy('games:list')
 
     def form_valid(self, form):
-        # zapisuje zwykłego użytkownika
-        user = form.save()  # is_staff=False, is_superuser=False
-        # loguje go automatycznie
-        login(self.request, user)
-        messages.success(self.request, f"Welcome, {user.username}! You are now logged in.")
-        return redirect(self.success_url)
+        user = form.save()                 # zapisuje i hashuje hasło
+        login(self.request, user)          # automatyczne logowanie
+        messages.success(self.request, f"Witaj, {user.username}! Zarejestrowano i zalogowano.")
+        return super().form_valid(form)    # przekieruje na success_url
+
+    def form_invalid(self, form):
+        # szybkie logowanie błędów w konsoli runserver — usuń gdy gotowe
+        print("SIGNUP FORM INVALID")
+        print("POST DATA:", self.request.POST)
+        print("FORM ERRORS:", form.errors.as_json())
+
+        # wyświetl błędy jako messages (opcjonalne)
+        for field, errors in form.errors.items():
+            for e in errors:
+                messages.error(self.request, f"{field}: {e}")
+
+        # ponownie wyrenderuj formularz (CreateView zrobi to poprawnie)
+        return super().form_invalid(form)
+
 
 
 # -----------------------
