@@ -1,7 +1,8 @@
 # GameDB - Django Game Collection
 
 GameDB is a simple Django web application to manage a collection of video games.  
-It features a dark theme, cover images for games, and a responsive grid layout using Bootstrap 5.
+It features a dark theme, cover images for games, a responsive Bootstrap layout,  
+user authentication, and a built-in comment system for each game.
 
 ---
 
@@ -9,11 +10,17 @@ It features a dark theme, cover images for games, and a responsive grid layout u
 
 - Add, edit, and delete games (CRUD)
 - Upload cover images for games
-- Responsive grid layout: 3 columns per row on desktop
+- Responsive grid layout (Bootstrap 5)
 - Dark mode theme
-- Filter by genre (optional)
-- Export / import games to JSON (optional)
 - User registration, login, and authentication
+- Game owners can edit/delete only their own games
+- **💬 Comment system**
+  - Users can post comments under each game  
+  - Comments include author & timestamp  
+  - Users can edit/delete their own comments  
+  - Admin/staff and game owners can delete any comment  
+- Optional: Filter by genre
+- Optional: Export / import games to JSON
 
 ---
 
@@ -23,8 +30,8 @@ It features a dark theme, cover images for games, and a responsive grid layout u
 ![Game list](docs/gamelist.png)
 ![Game detail](docs/game-details.png)
 ![Add/Edit Game](docs/game-edit.png)
+![Comments](docs/comments.png)
 ![Signup / Login](docs/signup.png)
-![Login](docs/login.png)
 
 ---
 
@@ -32,8 +39,8 @@ It features a dark theme, cover images for games, and a responsive grid layout u
 
 - Python 3.10+
 - Django 4.x+
+- Pillow (for image uploads)
 - Bootstrap 5 (via CDN)
-- Optional: Pillow (for image uploads)
 
 ---
 
@@ -44,9 +51,3 @@ It features a dark theme, cover images for games, and a responsive grid layout u
 ```bash
 git clone https://github.com/YOUR_USERNAME/GameDB.git
 cd GameDB
-```
-
-2. Launch server:
-```bash
-python manage.py runserver
-```
