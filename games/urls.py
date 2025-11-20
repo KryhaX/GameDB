@@ -16,4 +16,8 @@ urlpatterns = [
     path('<int:pk>/', views.GameDetailView.as_view(), name='detail'),
     path('<int:pk>/edit/', views.GameUpdateView.as_view(), name='edit'),
     path('<int:pk>/delete/', views.GameDeleteView.as_view(), name='delete'),
+
+    # comment edit/delete
+    path('comment/<int:pk>/edit/', views.CommentUpdateView.as_view(), name='comment_edit'),
+    path('comment/<int:pk>/delete/', views.CommentDeleteView.as_view(), name='comment_delete'),
 ]

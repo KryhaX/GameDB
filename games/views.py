@@ -1,7 +1,8 @@
 from django.contrib import messages
 from django.shortcuts import render, get_object_or_404, redirect
-from django.urls import reverse_lazy
+from django.urls import reverse_lazy, reverse
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
+from django.views.generic.edit import FormMixin
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import login
@@ -11,8 +12,8 @@ from django.views.decorators.http import require_http_methods
 
 import json
 
-from .models import Game
-from .forms import GameForm
+from .models import Game, Comment
+from .forms import GameForm, CommentForm
 
 
 # -----------------------
@@ -38,10 +39,45 @@ class GameListView(ListView):
         return ctx
 
 
-class GameDetailView(DetailView):
+# DetailView + FormMixin to display and post comments
+class GameDetailView(FormMixin, DetailView):
     model = Game
     template_name = 'games/game_detail.html'
     context_object_name = 'game'
+    form_class = CommentForm
+
+    def get_success_url(self):
+        # redirect back to the same game detail page after posting a comment
+        return reverse('games:detail', kwargs={'pk': self.object.pk})
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        # ensure form is available in context
+        if 'form' not in ctx:
+            ctx['form'] = self.get_form()
+        # list visible comments for this game
+        ctx['comments'] = self.object.comments.filter(is_visible=True).select_related('author')
+        return ctx
+
+    def post(self, request, *args, **kwargs):
+        # populate self.object for FormMixin + DetailView behavior
+        self.object = self.get_object()
+        # require login to post a comment
+        if not request.user.is_authenticated:
+            from django.contrib.auth.views import redirect_to_login
+            return redirect_to_login(request.get_full_path())
+        form = self.get_form()
+        if form.is_valid():
+            return self.form_valid(form)
+        return self.form_invalid(form)
+
+    def form_valid(self, form):
+        # attach game and author, then save the comment
+        comment = form.save(commit=False)
+        comment.game = self.object
+        comment.author = self.request.user
+        comment.save()
+        return super().form_valid(form)
 
 
 # -----------------------
@@ -50,7 +86,7 @@ class GameDetailView(DetailView):
 class OwnerOrStaffRequiredMixin(UserPassesTestMixin):
     """
     Allow access only if the request.user is the owner of the object or is staff/superuser.
-    Used for UpdateView and DeleteView.
+    Used for UpdateView and DeleteView on Game.
     """
     def test_func(self):
         obj = self.get_object()
@@ -67,7 +103,7 @@ class OwnerOrStaffRequiredMixin(UserPassesTestMixin):
 
 
 # -----------------------
-# Create / Update / Delete
+# Create / Update / Delete (Game)
 # -----------------------
 class GameCreateView(LoginRequiredMixin, CreateView):
     model = Game
@@ -97,31 +133,31 @@ class GameDeleteView(LoginRequiredMixin, OwnerOrStaffRequiredMixin, DeleteView):
     login_url = reverse_lazy('login')
 
 
+# -----------------------
+# Sign up view
+# -----------------------
 class SignUpView(CreateView):
     form_class = UserCreationForm
     template_name = 'registration/signup.html'
     success_url = reverse_lazy('games:list')
 
     def form_valid(self, form):
-        user = form.save()                 # zapisuje i hashuje hasło
-        login(self.request, user)          # automatyczne logowanie
-        messages.success(self.request, f"Witaj, {user.username}! Zarejestrowano i zalogowano.")
-        return super().form_valid(form)    # przekieruje na success_url
+        user = form.save()                 # save and hash password
+        login(self.request, user)          # auto login
+        messages.success(self.request, f"Welcome, {user.username}! You are registered and logged in.")
+        return super().form_valid(form)    # will redirect to success_url
 
     def form_invalid(self, form):
-        # szybkie logowanie błędów w konsoli runserver — usuń gdy gotowe
+        # quick logging for runserver — remove in production
         print("SIGNUP FORM INVALID")
         print("POST DATA:", self.request.POST)
         print("FORM ERRORS:", form.errors.as_json())
 
-        # wyświetl błędy jako messages (opcjonalne)
         for field, errors in form.errors.items():
             for e in errors:
                 messages.error(self.request, f"{field}: {e}")
 
-        # ponownie wyrenderuj formularz (CreateView zrobi to poprawnie)
         return super().form_invalid(form)
-
 
 
 # -----------------------
@@ -193,3 +229,43 @@ def import_games_json(request):
         except Exception as e:
             message = f"Error during import: {e}"
     return render(request, 'games/import_json.html', {'message': message})
+
+
+# -----------------------
+# Comment permission mixin + edit/delete views
+# -----------------------
+class CommentAuthorOrGameOwnerOrStaffMixin(UserPassesTestMixin):
+    """
+    Allow only the comment author, the game owner, or staff/superuser to edit/delete a comment.
+    """
+    def test_func(self):
+        comment = self.get_object()
+        user = getattr(self.request, "user", None)
+        if comment is None or user is None or not user.is_authenticated:
+            return False
+        return (
+            (comment.author == user) or
+            (getattr(comment.game, 'owner', None) == user) or
+            user.is_staff or
+            user.is_superuser
+        )
+
+    def handle_no_permission(self):
+        raise PermissionDenied
+
+
+class CommentUpdateView(LoginRequiredMixin, CommentAuthorOrGameOwnerOrStaffMixin, UpdateView):
+    model = Comment
+    form_class = CommentForm
+    template_name = 'games/comment_form.html'
+
+    def get_success_url(self):
+        return reverse_lazy('games:detail', kwargs={'pk': self.object.game.pk})
+
+
+class CommentDeleteView(LoginRequiredMixin, CommentAuthorOrGameOwnerOrStaffMixin, DeleteView):
+    model = Comment
+    template_name = 'games/comment_confirm_delete.html'
+
+    def get_success_url(self):
+        return reverse_lazy('games:detail', kwargs={'pk': self.object.game.pk})

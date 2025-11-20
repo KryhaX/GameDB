@@ -1,16 +1,80 @@
 {% extends "games/base.html" %}
 {% block content %}
+
 <h1>{{ game.title }}</h1>
 
 {% if game.cover %}
-  <img src="{{ game.cover.url }}" alt="{{ game.title }} cover" class="img-fluid mb-3" style="max-width:300px;">
+  <img src="{{ game.cover.url }}" alt="{{ game.title }} cover"
+       class="img-fluid mb-3" style="max-width:300px;">
 {% else %}
-  <p class="text-muted">Brak okładki</p>
+  <p class="text-muted">No cover available</p>
 {% endif %}
 
 <p><strong>Year:</strong> {{ game.release_year }}</p>
 <p><strong>Genre:</strong> {{ game.genre }}</p>
 <p><strong>Rating:</strong> {{ game.user_rating }}/10</p>
+
 <a class="btn btn-secondary" href="{% url 'games:list' %}">Back</a>
-<a class="btn btn-primary" href="{% url 'games:edit' game.pk %}">Edit</a>
+
+{% if user.is_authenticated %}
+    {% if game.owner == user or user.is_staff or user.is_superuser %}
+        <a class="btn btn-primary" href="{% url 'games:edit' game.pk %}">Edit</a>
+    {% endif %}
+{% endif %}
+
+<hr class="mt-4">
+
+<h3>Comments</h3>
+
+{% if comments %}
+<ul class="list-group mb-4">
+    {% for comment in comments %}
+    <li class="list-group-item">
+
+        <div>
+            <strong>{{ comment.author.username }}</strong>
+            <small class="text-muted">{{ comment.created_at|date:"Y-m-d H:i" }}</small>
+        </div>
+
+        <p class="mb-1">{{ comment.text|linebreaks }}</p>
+
+        {% if user.is_authenticated %}
+            {% if user == comment.author or user == game.owner or user.is_staff or user.is_superuser %}
+                <div class="mt-1">
+                    <a href="{% url 'games:comment_edit' comment.pk %}"
+                       class="btn btn-sm btn-outline-primary">Edit</a>
+                    <a href="{% url 'games:comment_delete' comment.pk %}"
+                       class="btn btn-sm btn-outline-danger">Delete</a>
+                </div>
+            {% endif %}
+        {% endif %}
+
+    </li>
+    {% endfor %}
+</ul>
+{% else %}
+<p class="text-muted">No comments yet.</p>
+{% endif %}
+
+{% if user.is_authenticated %}
+<hr>
+<h4>Add a comment</h4>
+
+<form method="post">
+    {% csrf_token %}
+
+    <div class="mb-3">
+        {{ form.text }}
+        {{ form.text.errors }}
+    </div>
+
+    <button class="btn btn-success" type="submit">Post comment</button>
+</form>
+
+{% else %}
+<p class="text-muted mt-3">
+    <a href="{% url 'login' %}?next={{ request.path }}">Log in</a> to add a comment.
+</p>
+{% endif %}
+
 {% endblock %}

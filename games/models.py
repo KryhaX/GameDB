@@ -28,3 +28,18 @@ class Game(models.Model):
     def __str__(self):
         return self.title
 
+
+class Comment(models.Model):
+    game = models.ForeignKey(Game, on_delete=models.CASCADE, related_name='comments')
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='comments')
+    text = models.TextField('Comment text')
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_visible = models.BooleanField(default=True)  # optional: moderation
+
+    class Meta:
+        ordering = ['-created_at']  # newest first
+        verbose_name = 'comment'
+        verbose_name_plural = 'comments'
+
+    def __str__(self):
+        return f'Comment by {self.author} on {self.game}'
